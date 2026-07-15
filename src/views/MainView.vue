@@ -53,6 +53,7 @@
 
     <!-- 공지 생성 -->
     <button data-test="generate-btn" class="generate-btn" @click="emitGenerate">공지 생성</button>
+    <p v-if="validationError" class="validation-error" data-test="validation-error">{{ validationError }}</p>
   </section>
 </template>
 
@@ -61,11 +62,18 @@ import { ref } from "vue";
 import { LANGUAGES } from "../constants/notice";
 import { useClipboardMessages } from "../composables/useClipboardMessages";
 import { usePrompts } from "../composables/usePrompts";
+import { useGeneration } from "../composables/useGeneration";
 
 const emit = defineEmits<{ (e: "generate"): void }>();
 
 // 공유 클립보드 상태
-const { state, select, clear, setWatching } = useClipboardMessages();
+const { state, select, clear, setWatching, selectedMessage } = useClipboardMessages();
+
+// 생성 상태
+const { generate } = useGeneration();
+
+// 검증 피드백
+const validationError = ref<string>("");
 
 // 프롬프트 상태
 const { state: promptState, savePrompt, updatePrompt, deletePrompt, getPrompt } = usePrompts();
@@ -112,8 +120,15 @@ const onDeletePrompt = (): void => {
   promptContent.value = "";
 };
 
-// 화면 전환 (실제 생성은 다음 Plan)
+// 공지 생성: 메시지 선택 검증 후 생성 트리거
 const emitGenerate = (): void => {
+  if (!selectedMessage.value) {
+    validationError.value = "복사한 메시지를 먼저 선택해주세요.";
+    return;
+  }
+  validationError.value = "";
+  // 실제 생성 시작(비동기) 후 결과 화면으로 전환
+  generate(selectedMessage.value.text, promptContent.value, language.value);
   emit("generate");
 };
 </script>
@@ -243,5 +258,10 @@ textarea {
 }
 .generate-btn:hover {
   filter: brightness(1.05);
+}
+.validation-error {
+  margin: 0;
+  color: #e5484d;
+  font-size: 13px;
 }
 </style>
