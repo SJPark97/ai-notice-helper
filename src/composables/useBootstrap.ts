@@ -76,6 +76,11 @@ export const startBootstrap = async (): Promise<void> => {
     const installed = await invoke<boolean>("model_installed");
     if (!installed) {
         await runPull();
+        // 다운로드 스트림이 success 없이 끝나는 엣지 방어: 실제 설치 여부 재확인
+        if ((state.phase as Phase) !== "error" && !(await invoke<boolean>("model_installed"))) {
+            state.phase = "error";
+            state.error = "모델 다운로드가 완료되지 않았습니다. 다시 시도해 주세요.";
+        }
     }
     if ((state.phase as Phase) !== "error") {
         state.phase = "ready";
