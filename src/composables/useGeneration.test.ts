@@ -83,4 +83,14 @@ describe("useGeneration 스트리밍", () => {
     });
     expect(g.state.result).toBe("수정본");
   });
+
+  it("코드 펜스로 감싼 결과는 펜스를 제거한다", async () => {
+    invokeMock.mockImplementation(async () => {
+      listeners["notice://token"]({ payload: "```html\n<b>공지</b>\n```" });
+      listeners["notice://done"]({ payload: undefined });
+    });
+    await g.generate("m", "p", "한국어", "html");
+    expect(g.state.result).toBe("<b>공지</b>");
+    expect(g.state.status).toBe("success");
+  });
 });
