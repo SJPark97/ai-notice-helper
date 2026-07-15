@@ -52,6 +52,12 @@
       <option v-for="l in LANGUAGES" :key="l.value" :value="l.value">{{ l.label }}</option>
     </select>
 
+    <!-- 출력 형식 -->
+    <label>출력 형식</label>
+    <select v-model="format" data-test="format">
+      <option v-for="f in FORMATS" :key="f.value" :value="f.value">{{ f.label }}</option>
+    </select>
+
     <!-- 공지 생성 -->
     <button data-test="generate-btn" class="generate-btn" @click="emitGenerate">공지 생성</button>
     <p v-if="validationError" class="validation-error" data-test="validation-error">{{ validationError }}</p>
@@ -78,7 +84,7 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
-import { LANGUAGES } from "../constants/notice";
+import { LANGUAGES, FORMATS } from "../constants/notice";
 import { useClipboardMessages } from "../composables/useClipboardMessages";
 import { usePrompts } from "../composables/usePrompts";
 import { useGeneration } from "../composables/useGeneration";
@@ -103,6 +109,9 @@ const { state: promptState, savePrompt, updatePrompt, deletePrompt, getPrompt, s
 
 // 출력 언어
 const language = ref<string>(LANGUAGES[0].value);
+
+// 출력 형식
+const format = ref<string>(FORMATS[0].value);
 
 // 프롬프트 편집 상태
 const selectedPromptId = ref<string>("");
@@ -173,7 +182,7 @@ const emitGenerate = (): void => {
   }
   validationError.value = "";
   // 실제 생성 시작(비동기) 후 결과 화면으로 전환
-  generate(selectedMessage.value.text, promptContent.value, language.value);
+  generate(selectedMessage.value.text, promptContent.value, language.value, format.value);
   emit("generate");
 };
 
