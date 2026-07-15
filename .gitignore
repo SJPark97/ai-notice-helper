@@ -25,3 +25,6 @@ dist-ssr
 
 # 작업 과정 스크래치(리뷰 diff/원장/브리프)
 .superpowers/
+
+# 번들용 Ollama 런타임(용량 큼 — CI/스크립트가 채움)
+src-tauri/ollama-runtime/
