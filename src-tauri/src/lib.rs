@@ -13,6 +13,7 @@ fn greet(name: &str) -> String {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_clipboard::init()) // 클립보드 감시 플러그인
         // 닫기(X) 버튼을 가로채 종료 대신 창 숨김 → 트레이 최소화
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {

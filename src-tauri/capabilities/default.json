@@ -5,6 +5,13 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
-    "opener:default"
+    "opener:default",
+    "clipboard:allow-start-monitor",
+    "clipboard:allow-stop-monitor",
+    "clipboard:allow-is-monitor-running",
+    "clipboard:allow-has-text",
+    "clipboard:allow-read-text",
+    "clipboard:allow-has-html",
+    "clipboard:allow-read-html"
   ]
 }
