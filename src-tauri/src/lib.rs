@@ -87,7 +87,9 @@ pub fn run() {
             ai::refine_notice,
             ai::generate_notice_stream,
             ai::refine_notice_stream,
-            ollama::ollama_ready
+            ollama::ollama_ready,
+            ai::model_installed,
+            ai::pull_model
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

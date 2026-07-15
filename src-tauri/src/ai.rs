@@ -2,8 +2,9 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
 
 // Ollama OpenAI 호환 엔드포인트 / 모델 (추후 llama-server로 교체 가능)
-const AI_URL: &str = "http://localhost:11434/v1/chat/completions";
-const MODEL: &str = "gemma4:e4b";
+const AI_URL: &str = "http://127.0.0.1:11535/v1/chat/completions";
+// 번들 앱이 사용하는 기본 모델
+pub const MODEL: &str = "gemma4:e4b";
 
 // 회사 공지 작성 규칙 (스펙 §9)
 const SYSTEM_PROMPT: &str = "너는 회사 공지 작성 도우미다. 규칙: 핵심 내용만, 일정 우선, 영향 범위 명시, 작업 내용 정리, 담당자는 마지막, 존댓말, 불필요한 인삿말 제거, 가독성 높은 불릿 사용. 공지 유형은 내용에 맞게 스스로 판단한다. 반드시 지정된 언어로만 출력한다. 결과를 코드 블록이나 코드 펜스(```)로 감싸지 말고 공지 내용만 그대로 출력한다.";
@@ -127,7 +128,7 @@ pub async fn refine_notice(
 }
 
 // Ollama 네이티브 API (keep_alive로 모델 로드/언로드 제어)
-const NATIVE_URL: &str = "http://localhost:11434/api/generate";
+const NATIVE_URL: &str = "http://127.0.0.1:11535/api/generate";
 
 #[derive(Serialize)]
 struct KeepAliveReq<'a> {
@@ -160,7 +161,7 @@ pub async fn unload_model() -> Result<(), String> {
 }
 
 // Ollama 네이티브 채팅 스트리밍 엔드포인트
-const NATIVE_CHAT_URL: &str = "http://localhost:11434/api/chat";
+const NATIVE_CHAT_URL: &str = "http://127.0.0.1:11535/api/chat";
 
 #[derive(Serialize)]
 struct StreamReq<'a> {
@@ -266,4 +267,94 @@ pub async fn refine_notice_stream(
         let _ = app.emit("notice://error", e.clone());
     }
     r
+}
+
+// /api/tags 응답에서 MODEL 설치 여부 판정(순수 함수 — 테스트 용이)
+fn has_model(tags: &serde_json::Value, model: &str) -> bool {
+    tags.get("models")
+        .and_then(|m| m.as_array())
+        .map(|arr| {
+            arr.iter().any(|m| {
+                m.get("model").and_then(|v| v.as_str()) == Some(model)
+                    || m.get("name").and_then(|v| v.as_str()) == Some(model)
+            })
+        })
+        .unwrap_or(false)
+}
+
+// 모델 설치 여부(전용 포트의 /api/tags 조회)
+#[tauri::command]
+pub async fn model_installed() -> bool {
+    let url = format!("http://127.0.0.1:{}/api/tags", crate::ollama::OLLAMA_PORT);
+    let Ok(resp) = reqwest::Client::new().get(&url).send().await else {
+        return false;
+    };
+    let Ok(json) = resp.json::<serde_json::Value>().await else {
+        return false;
+    };
+    has_model(&json, MODEL)
+}
+
+// 모델 스트리밍 다운로드. 진행률을 model://progress 이벤트로 emit.
+#[tauri::command]
+pub async fn pull_model(app: AppHandle) -> Result<(), String> {
+    let url = format!("http://127.0.0.1:{}/api/pull", crate::ollama::OLLAMA_PORT);
+    let client = reqwest::Client::new();
+    let mut resp = client
+        .post(&url)
+        .json(&serde_json::json!({ "model": MODEL, "stream": true }))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let mut buf = String::new();
+    while let Some(chunk) = resp.chunk().await.map_err(|e| e.to_string())? {
+        buf.push_str(&String::from_utf8_lossy(&chunk));
+        // NDJSON: 줄 단위 처리
+        while let Some(pos) = buf.find('\n') {
+            let line: String = buf.drain(..=pos).collect();
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+            let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+                continue;
+            };
+            if let Some(err) = v.get("error").and_then(|e| e.as_str()) {
+                let _ = app.emit("model://error", err.to_string());
+                return Err(err.to_string());
+            }
+            let status = v.get("status").and_then(|s| s.as_str()).unwrap_or("");
+            let completed = v.get("completed").and_then(|c| c.as_u64()).unwrap_or(0);
+            let total = v.get("total").and_then(|t| t.as_u64()).unwrap_or(0);
+            let _ = app.emit(
+                "model://progress",
+                serde_json::json!({ "status": status, "completed": completed, "total": total }),
+            );
+            if status == "success" {
+                let _ = app.emit("model://done", ());
+            }
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod model_tests {
+    use super::*;
+    #[test]
+    fn 태그에_모델있으면_true() {
+        let j = serde_json::json!({"models":[{"model":"gemma4:e4b","name":"gemma4:e4b"}]});
+        assert!(has_model(&j, "gemma4:e4b"));
+    }
+    #[test]
+    fn 태그에_없으면_false() {
+        let j = serde_json::json!({"models":[{"model":"llama3","name":"llama3"}]});
+        assert!(!has_model(&j, "gemma4:e4b"));
+    }
+    #[test]
+    fn models_없으면_false() {
+        let j = serde_json::json!({});
+        assert!(!has_model(&j, "gemma4:e4b"));
+    }
 }
