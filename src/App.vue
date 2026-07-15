@@ -1,19 +1,24 @@
 <template>
-    <button class="theme-toggle" type="button" data-test="theme-toggle" @click="toggleTheme">
-        {{ theme === "dark" ? "☀️" : "🌙" }}
-    </button>
+    <!-- AI 런타임/모델 준비 화면 -->
+    <BootstrapView v-if="bootstrap.phase !== 'ready'" />
+    <!-- 준비 완료 후 기존 앱 -->
+    <template v-else>
+        <button class="theme-toggle" type="button" data-test="theme-toggle" @click="toggleTheme">
+            {{ theme === "dark" ? "☀️" : "🌙" }}
+        </button>
 
-    <!-- 상단 탭 -->
-    <nav class="tabs">
-        <button :class="{ active: tab === 'notice' }" data-test="tab-notice" @click="tab = 'notice'">공지 생성</button>
-        <button :class="{ active: tab === 'rules' }" data-test="tab-rules" @click="tab = 'rules'">전역 규칙</button>
-    </nav>
+        <!-- 상단 탭 -->
+        <nav class="tabs">
+            <button :class="{ active: tab === 'notice' }" data-test="tab-notice" @click="tab = 'notice'">공지 생성</button>
+            <button :class="{ active: tab === 'rules' }" data-test="tab-rules" @click="tab = 'rules'">전역 규칙</button>
+        </nav>
 
-    <div v-show="tab === 'notice'">
-        <MainView v-show="screen === 'main'" @generate="screen = 'result'" />
-        <ResultView v-show="screen === 'result'" @back="screen = 'main'" />
-    </div>
-    <GlobalRulesView v-show="tab === 'rules'" />
+        <div v-show="tab === 'notice'">
+            <MainView v-show="screen === 'main'" @generate="screen = 'result'" />
+            <ResultView v-show="screen === 'result'" @back="screen = 'main'" />
+        </div>
+        <GlobalRulesView v-show="tab === 'rules'" />
+    </template>
 </template>
 
 <script setup lang="ts">
@@ -21,8 +26,14 @@ import { ref } from "vue";
 import MainView from "./views/MainView.vue";
 import ResultView from "./views/ResultView.vue";
 import GlobalRulesView from "./views/GlobalRulesView.vue";
+import BootstrapView from "./views/BootstrapView.vue";
 import { useClipboardWatch } from "./composables/useClipboardWatch";
+import { useBootstrap } from "./composables/useBootstrap";
 import { useTheme } from "./composables/useTheme";
+
+// AI 런타임/모델 부트스트랩 (setup 최상위에서 직접 호출)
+const { state: bootstrap, startBootstrap } = useBootstrap();
+startBootstrap();
 
 // 앱 생애 동안 클립보드 감시 (1회)
 useClipboardWatch();
