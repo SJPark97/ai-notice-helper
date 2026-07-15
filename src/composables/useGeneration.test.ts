@@ -5,6 +5,7 @@ const invokeMock = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => invokeMock(...a) }));
 
 import { useGeneration } from "./useGeneration";
+import { useHistory } from "./useHistory";
 
 describe("useGeneration", () => {
   const g = useGeneration();
@@ -58,5 +59,14 @@ describe("useGeneration", () => {
       language: "한국어",
     });
     expect(g.state.result).toBe("더 짧은 버전");
+  });
+
+  it("generate 성공 시 최근 기록에 추가된다", async () => {
+    const h = useHistory();
+    h.clearHistory();
+    invokeMock.mockResolvedValue("생성된 공지 본문");
+    await g.generate("메시지", "지시", "한국어");
+    expect(h.state.records[0].notice).toBe("생성된 공지 본문");
+    expect(h.state.records[0].language).toBe("한국어");
   });
 });
