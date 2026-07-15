@@ -22,7 +22,8 @@
         data-test="msg-item"
         @click="select(m.id)"
       >
-        {{ m.preview }}
+        <span class="msg-text">{{ m.text }}</span>
+        <span class="msg-time">{{ msgTime(m.capturedAt) }}</span>
       </button>
     </div>
 
@@ -97,8 +98,8 @@ const { state: historyState, clearHistory } = useHistory();
 // 검증 피드백
 const validationError = ref<string>("");
 
-// 프롬프트 상태
-const { state: promptState, savePrompt, updatePrompt, deletePrompt, getPrompt } = usePrompts();
+// 프롬프트 상태 (마지막 선택 포함)
+const { state: promptState, savePrompt, updatePrompt, deletePrompt, getPrompt, setLastSelected } = usePrompts();
 
 // 출력 언어
 const language = ref<string>(LANGUAGES[0].value);
@@ -108,23 +109,37 @@ const selectedPromptId = ref<string>("");
 const promptTitle = ref<string>("");
 const promptContent = ref<string>("");
 
+// 시작 시 마지막 선택 프롬프트 복원 (onMounted 없이 setup 최상위)
+if (promptState.lastSelectedId) {
+  const lastP = getPrompt(promptState.lastSelectedId);
+  if (lastP) {
+    selectedPromptId.value = lastP.id;
+    promptTitle.value = lastP.title;
+    promptContent.value = lastP.content;
+  }
+}
+
 // 감시 토글
 const onToggleWatch = (e: Event): void => {
   setWatching((e.target as HTMLInputElement).checked);
 };
 
-// 프롬프트 선택 → 제목/내용 로드
+// 프롬프트 선택 → 제목/내용 로드 + 마지막 선택 저장
 const onSelectPrompt = (): void => {
-  const p = getPrompt(selectedPromptId.value);
-  if (!p) return;
-  promptTitle.value = p.title;
-  promptContent.value = p.content;
+  const pr = getPrompt(selectedPromptId.value);
+  if (!pr) return;
+  promptTitle.value = pr.title;
+  promptContent.value = pr.content;
+  setLastSelected(pr.id);
 };
 
-// 현재 편집 내용을 새 프롬프트로 저장
+// 저장 → 새 프롬프트 + 마지막 선택 갱신
 const onSavePrompt = (): void => {
   const saved = savePrompt(promptTitle.value, promptContent.value);
-  if (saved) selectedPromptId.value = saved.id;
+  if (saved) {
+    selectedPromptId.value = saved.id;
+    setLastSelected(saved.id);
+  }
 };
 
 // 선택된 프롬프트 수정
@@ -133,13 +148,21 @@ const onUpdatePrompt = (): void => {
   updatePrompt(selectedPromptId.value, promptTitle.value, promptContent.value);
 };
 
-// 선택된 프롬프트 삭제
+// 삭제 → 필드/선택 초기화 (usePrompts가 lastSelectedId도 정리)
 const onDeletePrompt = (): void => {
   if (!selectedPromptId.value) return;
   deletePrompt(selectedPromptId.value);
   selectedPromptId.value = "";
   promptTitle.value = "";
   promptContent.value = "";
+};
+
+// 메시지 캡처 시각 (HH:MM)
+const msgTime = (d: Date): string => {
+  const dt = new Date(d);
+  const hh = String(dt.getHours()).padStart(2, "0");
+  const mm = String(dt.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
 };
 
 // 공지 생성: 메시지 선택 검증 후 생성 트리거
@@ -214,7 +237,7 @@ label {
 }
 .msg-list {
   min-height: 96px;
-  max-height: 200px;
+  max-height: 260px;
   overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -230,6 +253,10 @@ label {
   font-size: 13px;
 }
 .msg-item {
+  flex: none; /* 항목 많아도 찌그러지지 않게(스크롤로) */
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   text-align: left;
   padding: 8px 10px;
   border: 1px solid transparent;
@@ -237,9 +264,6 @@ label {
   background: var(--item-bg);
   color: var(--text);
   cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   font-size: 13px;
 }
 .msg-item:hover {
@@ -248,6 +272,20 @@ label {
 .msg-item.selected {
   border-color: var(--primary);
   background: color-mix(in srgb, var(--primary) 14%, var(--surface));
+}
+.msg-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.4;
+  white-space: normal;
+  word-break: break-word;
+}
+.msg-time {
+  align-self: flex-end;
+  font-size: 11px;
+  color: var(--muted);
 }
 .prompt-head {
   display: flex;

@@ -2,8 +2,14 @@
   <section class="result-view">
     <h1>생성된 공지</h1>
 
-    <!-- 로딩 -->
-    <p v-if="state.status === 'loading'" class="status" data-test="status-loading">AI가 공지를 생성 중입니다…</p>
+    <!-- 로딩: 스피너 + 진행바(백분율 불가 → indeterminate) -->
+    <div v-if="state.status === 'loading'" class="loading" data-test="status-loading">
+      <div class="loading-head">
+        <span class="spinner" aria-hidden="true"></span>
+        <span>AI가 공지를 생성 중입니다…</span>
+      </div>
+      <div class="progress-bar" role="progressbar" aria-label="생성 진행 중"></div>
+    </div>
 
     <!-- 에러 -->
     <div v-else-if="state.status === 'error'" class="status error" data-test="status-error">
@@ -136,5 +142,58 @@ h1 {
 .actions button:hover,
 .refine-row button:hover {
   border-color: var(--primary);
+}
+.loading {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.loading-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex: none;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.progress-bar {
+  position: relative;
+  height: 4px;
+  width: 100%;
+  background: var(--item-bg);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.progress-bar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 40%;
+  background: var(--primary);
+  border-radius: 2px;
+  animation: indeterminate 1.2s ease-in-out infinite;
+}
+@keyframes indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(350%);
+  }
 }
 </style>

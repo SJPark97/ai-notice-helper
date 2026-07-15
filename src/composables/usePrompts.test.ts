@@ -6,6 +6,7 @@ describe("usePrompts", () => {
   beforeEach(() => {
     p.state.prompts.splice(0);
     localStorage.clear();
+    p.setLastSelected("");
   });
 
   it("제목+내용을 저장하면 목록·저장소에 추가된다", () => {
@@ -41,5 +42,18 @@ describe("usePrompts", () => {
     p.deletePrompt((saved as { id: string }).id);
     expect(p.state.prompts).toHaveLength(0);
     expect(JSON.parse(localStorage.getItem("ai-notice:prompts") as string)).toHaveLength(0);
+  });
+
+  it("setLastSelected로 마지막 선택 id를 저장한다", () => {
+    p.setLastSelected("p123");
+    expect(p.state.lastSelectedId).toBe("p123");
+    expect(localStorage.getItem("ai-notice:lastPromptId")).toBe("p123");
+  });
+
+  it("선택된 프롬프트를 삭제하면 lastSelectedId도 비워진다", () => {
+    const saved = p.savePrompt("삭제대상", "x");
+    p.setLastSelected((saved as { id: string }).id);
+    p.deletePrompt((saved as { id: string }).id);
+    expect(p.state.lastSelectedId).toBe("");
   });
 });

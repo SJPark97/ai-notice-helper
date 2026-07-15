@@ -8,6 +8,7 @@ export interface Prompt {
 }
 
 const STORAGE_KEY = "ai-notice:prompts";
+const LAST_KEY = "ai-notice:lastPromptId";
 
 // localStorage에서 초기 로드 (손상 시 빈 배열)
 const load = (): Prompt[] => {
@@ -19,8 +20,11 @@ const load = (): Prompt[] => {
   }
 };
 
-// 앱 전역 단일 상태
-const state = reactive({ prompts: load() as Prompt[] });
+// 앱 전역 단일 상태 (prompts + 마지막 선택 id)
+const state = reactive({
+  prompts: load() as Prompt[],
+  lastSelectedId: localStorage.getItem(LAST_KEY) ?? "",
+});
 
 // 현재 상태를 localStorage에 저장
 const persist = (): void => {
@@ -58,6 +62,7 @@ export function usePrompts() {
     if (i >= 0) {
       state.prompts.splice(i, 1);
       persist();
+      if (state.lastSelectedId === id) setLastSelected("");
     }
   };
 
@@ -65,5 +70,11 @@ export function usePrompts() {
   const getPrompt = (id: string): Prompt | undefined =>
     state.prompts.find((x) => x.id === id);
 
-  return { state, savePrompt, updatePrompt, deletePrompt, getPrompt };
+  // 마지막 선택 프롬프트 id 저장
+  const setLastSelected = (id: string): void => {
+    state.lastSelectedId = id;
+    localStorage.setItem(LAST_KEY, id);
+  };
+
+  return { state, savePrompt, updatePrompt, deletePrompt, getPrompt, setLastSelected };
 }
