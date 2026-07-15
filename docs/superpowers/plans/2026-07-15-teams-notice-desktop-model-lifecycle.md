@@ -195,6 +195,103 @@ git commit -m "feat: 창 최소 크기 설정
 
 ---
 
+### Task 3: GitHub Actions 릴리스 빌드 (Mac/Windows 설치파일)
+
+**Files:**
+- Create: `.github/workflows/release.yml`
+
+**Interfaces:** 없음(CI 설정). src 코드와 무관.
+
+**컨텍스트:** `tauri-apps/tauri-action`으로 macOS(universal `.dmg`)/Windows(`.msi`,`.exe`) 빌드. `v*` 태그 push 시 GitHub Release(draft) 생성 후 설치파일 첨부. 프론트는 npm(`package-lock.json` 있음). tauri-action이 `tauri build`를 돌리며 beforeBuildCommand(`npm run build`)를 자동 실행.
+
+- [ ] **Step 1: 워크플로우 파일 작성**
+
+Create `.github/workflows/release.yml`:
+```yaml
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-installers:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: '--target universal-apple-darwin'
+          - platform: windows-latest
+            args: ''
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install frontend deps
+        run: npm ci
+
+      - name: Build app & publish release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'AI 공지 도우미 ${{ github.ref_name }}'
+          releaseBody: |
+            아래 Assets에서 설치파일을 받으세요.
+            - macOS: `.dmg`
+            - Windows: `.msi` 또는 `.exe`
+
+            ⚠️ 이 앱은 로컬 AI(Ollama)를 사용합니다. 실행 전 해당 PC에 Ollama 설치 후 `ollama pull gemma4:e4b` 가 필요합니다.
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
+```
+> tauri-action 메이저 태그(`@v0`)는 작성 시점 기준. 공식 [tauri-action README](https://github.com/tauri-apps/tauri-action)에서 현재 권장 태그를 확인해 다르면 그 값으로 맞춘다(그 외 구조는 동일).
+> 서명(코드사이닝)은 인증서 비밀키(secrets)가 필요해 이 기본 워크플로우엔 넣지 않는다(미서명 빌드 — macOS는 우클릭>열기, Windows는 SmartScreen 통과 필요). 추후 인증서 준비 시 tauri-action 서명 env 추가.
+
+- [ ] **Step 2: YAML 유효성 확인**
+
+Run(로컬 YAML 파싱만 — 실제 CI는 GitHub push 시 실행):
+```bash
+cd /Users/sjpark/Documents/project/ai
+python3 -c "import yaml,sys; yaml.safe_load(open('.github/workflows/release.yml')); print('YAML OK')"
+```
+Expected: `YAML OK`. (실제 빌드는 원격에 태그 push해야 검증되며, 이 저장소는 아직 원격이 없어 controller가 별도 안내.)
+
+- [ ] **Step 3: 커밋**
+
+```bash
+cd /Users/sjpark/Documents/project/ai
+git add .github/workflows/release.yml
+git commit -m "build: Mac/Windows 설치파일 GitHub Actions 릴리스 워크플로우 추가
+
+- tauri-action으로 macOS(universal dmg)/Windows(msi,exe) 빌드
+- v* 태그 push 시 릴리스(draft) 생성 및 설치파일 첨부"
+```
+
+---
+
 ## 완료 기준 (Plan 8)
 
 - 앱 시작 후 잠시 뒤 `curl -s http://localhost:11434/api/ps`에 `gemma4:e4b`가 로드됨.
