@@ -26,14 +26,38 @@ const emitBack = () => {
 .result-view {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 16px;
+    gap: 12px;
+    padding: 20px;
+    max-width: 720px;
+    margin: 0 auto;
+}
+h1 {
+    font-size: 22px;
+    margin: 0;
 }
 .preview {
-    min-height: 240px;
+    min-height: 260px;
+    font: inherit;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--text);
+    resize: vertical;
 }
 .actions {
     display: flex;
     gap: 8px;
+}
+.actions button {
+    padding: 9px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+}
+.actions button:hover {
+    border-color: var(--primary);
 }
 </style>
