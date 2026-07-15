@@ -6,6 +6,13 @@ import { useGlobalRules } from "./useGlobalRules";
 
 type Status = "idle" | "loading" | "success" | "error";
 
+// 결과 전체를 감싼 코드 펜스(```lang ... ```) 제거 (안전망)
+const stripFence = (text: string): string => {
+  const t = text.trim();
+  const m = t.match(/^```[a-zA-Z]*\n?([\s\S]*?)\n?```$/);
+  return m ? m[1].trim() : t;
+};
+
 // state.format은 결과 미리보기가 형식별 렌더에 사용
 const state = reactive({ status: "idle" as Status, result: "", error: "", format: "plain" });
 
@@ -38,6 +45,7 @@ export function useGeneration() {
       );
       unlistens.push(
         await listen("notice://done", () => {
+          state.result = stripFence(state.result);
           state.status = "success";
           addRecord(state.result, language, Date.now() - start);
           cleanup();

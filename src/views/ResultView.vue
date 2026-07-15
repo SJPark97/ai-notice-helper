@@ -38,7 +38,7 @@
 
       <!-- 미리보기 (형식별 렌더) -->
       <div v-else class="rendered" data-test="rendered">
-        <pre v-if="state.format === 'plain'" class="rendered-plain">{{ state.result }}</pre>
+        <pre v-if="isPlainLike" class="rendered-plain">{{ state.result }}</pre>
         <div v-else class="rendered-rich" v-html="previewHtml"></div>
       </div>
 
@@ -72,12 +72,19 @@ const copied = ref<boolean>(false);
 // 편집 / 미리보기 모드
 const viewMode = ref<"edit" | "preview">("edit");
 
-// 형식별 미리보기 HTML (plain은 v-html 미사용)
+// 형식별 미리보기 HTML. 텍스트형(plain/editor/emoji/numbered)은 <pre>로 표시하므로 여기선 "" 반환
 const previewHtml = computed<string>(() => {
   if (state.format === "html") return state.result;
-  if (state.format === "markdown") return marked.parse(state.result, { async: false }) as string;
+  if (state.format === "markdown" || state.format === "table") {
+    return marked.parse(state.result, { async: false }) as string;
+  }
   return "";
 });
+
+// 텍스트형 형식(마크업 없이 그대로 보여줄 것)
+const isPlainLike = computed<boolean>(() =>
+  ["plain", "editor", "emoji", "numbered"].includes(state.format),
+);
 
 // 편집 반영
 const onEdit = (e: Event): void => {
@@ -260,6 +267,16 @@ h1 {
 }
 .rendered-rich :first-child {
   margin-top: 0;
+}
+.rendered-rich table {
+  border-collapse: collapse;
+  margin: 8px 0;
+}
+.rendered-rich th,
+.rendered-rich td {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  text-align: left;
 }
 .streaming {
   margin: 0;

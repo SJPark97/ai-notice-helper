@@ -6,7 +6,7 @@ const AI_URL: &str = "http://localhost:11434/v1/chat/completions";
 const MODEL: &str = "gemma4:e4b";
 
 // 회사 공지 작성 규칙 (스펙 §9)
-const SYSTEM_PROMPT: &str = "너는 회사 공지 작성 도우미다. 규칙: 핵심 내용만, 일정 우선, 영향 범위 명시, 작업 내용 정리, 담당자는 마지막, 존댓말, 불필요한 인삿말 제거, 가독성 높은 불릿 사용. 공지 유형은 내용에 맞게 스스로 판단한다. 반드시 지정된 언어로만 출력한다.";
+const SYSTEM_PROMPT: &str = "너는 회사 공지 작성 도우미다. 규칙: 핵심 내용만, 일정 우선, 영향 범위 명시, 작업 내용 정리, 담당자는 마지막, 존댓말, 불필요한 인삿말 제거, 가독성 높은 불릿 사용. 공지 유형은 내용에 맞게 스스로 판단한다. 반드시 지정된 언어로만 출력한다. 결과를 코드 블록이나 코드 펜스(```)로 감싸지 말고 공지 내용만 그대로 출력한다.";
 
 #[derive(Serialize, Deserialize, Clone)]
 struct Msg {
