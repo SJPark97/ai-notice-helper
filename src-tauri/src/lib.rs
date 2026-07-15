@@ -4,6 +4,8 @@ use tauri::{
     Manager, WindowEvent,
 };
 
+mod ai;
+
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -63,7 +65,7 @@ pub fn run() {
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet])
+        .invoke_handler(tauri::generate_handler![greet, ai::generate_notice, ai::refine_notice])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
