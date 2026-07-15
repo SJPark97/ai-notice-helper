@@ -21,9 +21,14 @@ pub fn run() {
             if let WindowEvent::CloseRequested { api, .. } = event {
                 let _ = window.hide();
                 api.prevent_close();
+                // 트레이로 최소화 시 모델 언로드(RAM 반납)
+                tauri::async_runtime::spawn(async { let _ = ai::unload_model().await; });
             }
         })
         .setup(|app| {
+            // 앱 시작 시 모델 미리 로드(첫 생성 체감 속도 향상)
+            tauri::async_runtime::spawn(async { let _ = ai::preload_model().await; });
+
             // 트레이 우클릭 메뉴: 열기 / 종료
             let open_i = MenuItem::with_id(app, "open", "열기", true, None::<&str>)?;
             let quit_i = MenuItem::with_id(app, "quit", "종료", true, None::<&str>)?;
@@ -39,6 +44,8 @@ pub fn run() {
                             let _ = w.show();
                             let _ = w.set_focus();
                         }
+                        // 창을 열 때 모델 미리 로드
+                        tauri::async_runtime::spawn(async { let _ = ai::preload_model().await; });
                     }
                     "quit" => {
                         app.exit(0); // 진짜 종료 (사이드카는 후속 Plan에서 여기 정리)
@@ -58,6 +65,8 @@ pub fn run() {
                             let _ = w.show();
                             let _ = w.set_focus();
                         }
+                        // 트레이에서 다시 열 때 모델 미리 로드
+                        tauri::async_runtime::spawn(async { let _ = ai::preload_model().await; });
                     }
                 })
                 .build(app)?;
