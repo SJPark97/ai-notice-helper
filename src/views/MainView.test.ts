@@ -19,6 +19,15 @@ describe("MainView", () => {
     const wrapper = mount(MainView);
     expect(wrapper.find('[data-test="language"]').exists()).toBe(true);
   });
+
+  it("메시지 미선택 시 공지 생성하면 검증 피드백을 보여주고 generate 이벤트를 내지 않는다", async () => {
+    const cb = useClipboardMessages();
+    cb.clear();
+    const wrapper = mount(MainView);
+    await wrapper.find('[data-test="generate-btn"]').trigger("click");
+    expect(wrapper.find('[data-test="validation-error"]').exists()).toBe(true);
+    expect(wrapper.emitted("generate")).toBeFalsy();
+  });
 });
 
 describe("MainView 클립보드 리스트", () => {
