@@ -1,4 +1,7 @@
 <template>
+    <button class="theme-toggle" type="button" data-test="theme-toggle" @click="toggleTheme">
+        {{ theme === "dark" ? "☀️" : "🌙" }}
+    </button>
     <MainView v-if="screen === 'main'" @generate="screen = 'result'" />
     <ResultView v-else @back="screen = 'main'" />
 </template>
@@ -8,9 +11,14 @@ import { ref } from "vue";
 import MainView from "./views/MainView.vue";
 import ResultView from "./views/ResultView.vue";
 import { useClipboardWatch } from "./composables/useClipboardWatch";
+import { useTheme } from "./composables/useTheme";
 
 // 앱 생애 동안 클립보드 감시 (1회)
 useClipboardWatch();
+
+// 테마 초기화 + 토글
+const { theme, toggleTheme, initTheme } = useTheme();
+initTheme();
 
 // 현재 화면 상태 (main | result)
 const screen = ref<"main" | "result">("main");
@@ -67,5 +75,18 @@ body {
     margin: 0;
     background: var(--bg);
     color: var(--text);
+}
+.theme-toggle {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    z-index: 10;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: 8px;
+    width: 34px;
+    height: 34px;
+    font-size: 15px;
+    cursor: pointer;
 }
 </style>
