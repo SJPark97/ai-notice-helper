@@ -1,5 +1,6 @@
 import { reactive } from "vue";
 import { invoke } from "@tauri-apps/api/core";
+import { useHistory } from "./useHistory";
 
 type Status = "idle" | "loading" | "success" | "error";
 
@@ -14,14 +15,18 @@ const state = reactive({
 let last = { message: "", prompt: "", language: "한국어" };
 
 export function useGeneration() {
+  const { addRecord } = useHistory();
+
   // 공지 생성
   const generate = async (message: string, prompt: string, language: string): Promise<void> => {
     last = { message, prompt, language };
     state.status = "loading";
     state.error = "";
+    const start = Date.now();
     try {
       state.result = await invoke<string>("generate_notice", { message, prompt, language });
       state.status = "success";
+      addRecord(state.result, language, Date.now() - start);
     } catch (e) {
       state.status = "error";
       state.error = String(e);
@@ -35,6 +40,7 @@ export function useGeneration() {
   const refine = async (instruction: string): Promise<void> => {
     state.status = "loading";
     state.error = "";
+    const start = Date.now();
     try {
       state.result = await invoke<string>("refine_notice", {
         current: state.result,
@@ -42,6 +48,7 @@ export function useGeneration() {
         language: last.language,
       });
       state.status = "success";
+      addRecord(state.result, last.language, Date.now() - start);
     } catch (e) {
       state.status = "error";
       state.error = String(e);

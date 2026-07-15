@@ -3,6 +3,7 @@ import { mount } from "@vue/test-utils";
 import MainView from "./MainView.vue";
 import { useClipboardMessages } from "../composables/useClipboardMessages";
 import { usePrompts } from "../composables/usePrompts";
+import { useHistory } from "../composables/useHistory";
 
 describe("MainView", () => {
   it("공지 생성 버튼이 있다", () => {
@@ -84,5 +85,28 @@ describe("MainView 프롬프트", () => {
     await wrapper.find('[data-test="prompt-title"]').setValue("수정본");
     await wrapper.find('[data-test="prompt-update"]').trigger("click");
     expect(p.state.prompts[0].title).toBe("수정본");
+  });
+});
+
+describe("MainView 최근 기록", () => {
+  const h = useHistory();
+  beforeEach(() => {
+    h.state.records.splice(0);
+    localStorage.clear();
+  });
+
+  it("최근 기록을 목록으로 렌더한다", () => {
+    h.addRecord("지난 공지 본문입니다", "한국어", 900);
+    const wrapper = mount(MainView);
+    const items = wrapper.findAll('[data-test="history-item"]');
+    expect(items).toHaveLength(1);
+    expect(items[0].text()).toContain("지난 공지");
+  });
+
+  it("기록 항목 클릭 시 generate 이벤트로 화면을 전환한다", async () => {
+    h.addRecord("불러올 공지", "한국어", 500);
+    const wrapper = mount(MainView);
+    await wrapper.find('[data-test="history-item"]').trigger("click");
+    expect(wrapper.emitted("generate")).toBeTruthy();
   });
 });

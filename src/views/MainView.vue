@@ -54,6 +54,24 @@
     <!-- 공지 생성 -->
     <button data-test="generate-btn" class="generate-btn" @click="emitGenerate">공지 생성</button>
     <p v-if="validationError" class="validation-error" data-test="validation-error">{{ validationError }}</p>
+
+    <!-- 최근 생성 기록 -->
+    <div v-if="historyState.records.length" class="history">
+      <div class="history-head">
+        <span>최근 기록</span>
+        <button class="clear-btn" data-test="history-clear" @click="clearHistory">기록 지우기</button>
+      </div>
+      <button
+        v-for="r in historyState.records"
+        :key="r.id"
+        type="button"
+        class="history-item"
+        data-test="history-item"
+        @click="onSelectHistory(r.id)"
+      >
+        {{ historyPreview(r.notice) }}
+      </button>
+    </div>
   </section>
 </template>
 
@@ -63,6 +81,7 @@ import { LANGUAGES } from "../constants/notice";
 import { useClipboardMessages } from "../composables/useClipboardMessages";
 import { usePrompts } from "../composables/usePrompts";
 import { useGeneration } from "../composables/useGeneration";
+import { useHistory } from "../composables/useHistory";
 
 const emit = defineEmits<{ (e: "generate"): void }>();
 
@@ -70,7 +89,10 @@ const emit = defineEmits<{ (e: "generate"): void }>();
 const { state, select, clear, setWatching, selectedMessage } = useClipboardMessages();
 
 // 생성 상태
-const { generate } = useGeneration();
+const { generate, setResult, state: genState } = useGeneration();
+
+// 최근 기록 상태
+const { state: historyState, clearHistory } = useHistory();
 
 // 검증 피드백
 const validationError = ref<string>("");
@@ -129,6 +151,21 @@ const emitGenerate = (): void => {
   validationError.value = "";
   // 실제 생성 시작(비동기) 후 결과 화면으로 전환
   generate(selectedMessage.value.text, promptContent.value, language.value);
+  emit("generate");
+};
+
+// 기록 항목 미리보기 (한 줄 80자)
+const historyPreview = (notice: string): string => {
+  const oneLine = notice.replace(/\s+/g, " ").trim();
+  return oneLine.length > 80 ? `${oneLine.slice(0, 80)}…` : oneLine;
+};
+
+// 기록 클릭 → 결과 화면에 로드
+const onSelectHistory = (id: string): void => {
+  const rec = historyState.records.find((r) => r.id === id);
+  if (!rec) return;
+  setResult(rec.notice);
+  genState.status = "success";
   emit("generate");
 };
 </script>
@@ -263,5 +300,37 @@ textarea {
   margin: 0;
   color: #e5484d;
   font-size: 13px;
+}
+.history {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+.history-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+  font-size: 13px;
+}
+.history-head .clear-btn {
+  margin-left: auto;
+}
+.history-item {
+  text-align: left;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--item-bg);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+}
+.history-item:hover {
+  border-color: var(--primary);
 }
 </style>
