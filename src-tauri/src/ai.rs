@@ -93,3 +93,36 @@ pub async fn refine_notice(
     ];
     call_ai(messages).await
 }
+
+// Ollama 네이티브 API (keep_alive로 모델 로드/언로드 제어)
+const NATIVE_URL: &str = "http://localhost:11434/api/generate";
+
+#[derive(Serialize)]
+struct KeepAliveReq<'a> {
+    model: &'a str,
+    keep_alive: i64,
+}
+
+// 프롬프트 없이 keep_alive만 보내 모델 로드/유지시간을 제어한다.
+// keep_alive: -1 = 무한 유지(미리 로드), 0 = 즉시 언로드
+async fn set_keep_alive(keep_alive: i64) -> Result<(), String> {
+    let client = reqwest::Client::new();
+    let body = KeepAliveReq { model: MODEL, keep_alive };
+    client
+        .post(NATIVE_URL)
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+// 모델 미리 로드(창을 열 때/시작 시) — 이후 유지해 생성 체감 속도 향상
+pub async fn preload_model() -> Result<(), String> {
+    set_keep_alive(-1).await
+}
+
+// 모델 언로드(트레이로 최소화될 때) — RAM 반납
+pub async fn unload_model() -> Result<(), String> {
+    set_keep_alive(0).await
+}
