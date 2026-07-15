@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# 작업 과정 스크래치(리뷰 diff/원장/브리프)
+.superpowers/
