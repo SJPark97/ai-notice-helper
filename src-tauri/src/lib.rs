@@ -74,7 +74,13 @@ pub fn run() {
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, ai::generate_notice, ai::refine_notice])
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            ai::generate_notice,
+            ai::refine_notice,
+            ai::generate_notice_stream,
+            ai::refine_notice_stream
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
