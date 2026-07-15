@@ -40,6 +40,15 @@ jobs:
       - name: Install frontend deps
         run: npm ci
 
+      - name: Fetch Ollama runtime (macOS)
+        if: matrix.platform == 'macos-latest'
+        run: bash scripts/fetch-ollama.sh
+
+      - name: Fetch Ollama runtime (Windows)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: ./scripts/fetch-ollama.ps1
+
       - name: Build app & publish release
         uses: tauri-apps/tauri-action@v1
         env:
@@ -52,7 +61,7 @@ jobs:
             - macOS: `.dmg`
             - Windows: `.msi` 또는 `.exe`
 
-            ⚠️ 이 앱은 로컬 AI(Ollama)를 사용합니다. 실행 전 해당 PC에 Ollama 설치 후 `ollama pull gemma4:e4b` 가 필요합니다.
+            별도 설치 없이 바로 사용할 수 있습니다. 최초 1회 실행 시 AI 모델(약 9.6GB)을 자동 다운로드하며, 이후에는 오프라인으로 동작합니다.
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
