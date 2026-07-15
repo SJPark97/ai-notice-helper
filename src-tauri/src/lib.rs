@@ -5,6 +5,7 @@ use tauri::{
 };
 
 mod ai;
+mod ollama;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -16,6 +17,7 @@ fn greet(name: &str) -> String {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_clipboard::init()) // 클립보드 감시 플러그인
+        .manage(ollama::OllamaProcess::default())
         // 닫기(X) 버튼을 가로채 종료 대신 창 숨김 → 트레이 최소화
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
@@ -26,6 +28,10 @@ pub fn run() {
             }
         })
         .setup(|app| {
+            // 번들된 ollama serve 기동(전용 포트)
+            if let Err(e) = ollama::start_server(app.handle()) {
+                eprintln!("ollama 기동 실패: {e}");
+            }
             // 앱 시작 시 모델 미리 로드(첫 생성 체감 속도 향상)
             tauri::async_runtime::spawn(async { let _ = ai::preload_model().await; });
 
@@ -48,7 +54,8 @@ pub fn run() {
                         tauri::async_runtime::spawn(async { let _ = ai::preload_model().await; });
                     }
                     "quit" => {
-                        app.exit(0); // 진짜 종료 (사이드카는 후속 Plan에서 여기 정리)
+                        ollama::stop_server(app); // 번들 ollama serve 종료
+                        app.exit(0);
                     }
                     _ => {}
                 })
@@ -79,8 +86,14 @@ pub fn run() {
             ai::generate_notice,
             ai::refine_notice,
             ai::generate_notice_stream,
-            ai::refine_notice_stream
+            ai::refine_notice_stream,
+            ollama::ollama_ready
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            if let tauri::RunEvent::ExitRequested { .. } = event {
+                ollama::stop_server(app);
+            }
+        });
 }
