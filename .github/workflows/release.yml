@@ -59,7 +59,7 @@ jobs:
           releaseBody: |
             아래 Assets에서 설치파일을 받으세요.
             - macOS: `.dmg`
-            - Windows: `.msi` 또는 `.exe`
+            - Windows: `.exe`
 
             별도 설치 없이 바로 사용할 수 있습니다. 최초 1회 실행 시 AI 모델(약 9.6GB)을 자동 다운로드하며, 이후에는 오프라인으로 동작합니다.
           releaseDraft: true
