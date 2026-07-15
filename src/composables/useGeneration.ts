@@ -1,30 +1,38 @@
 import { reactive } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { useHistory } from "./useHistory";
+import { useGlobalRules } from "./useGlobalRules";
 
 type Status = "idle" | "loading" | "success" | "error";
 
-// 앱 전역 단일 생성 상태
-const state = reactive({
-  status: "idle" as Status,
-  result: "",
-  error: "",
-});
+// state.format은 결과 미리보기(Task 4)가 형식별 렌더를 위해 읽는다
+const state = reactive({ status: "idle" as Status, result: "", error: "", format: "plain" });
 
-// 직전 생성 입력 (다시 생성용)
-let last = { message: "", prompt: "", language: "한국어" };
+let last = { message: "", prompt: "", language: "한국어", format: "plain" };
 
 export function useGeneration() {
   const { addRecord } = useHistory();
+  const { state: rulesState } = useGlobalRules();
 
-  // 공지 생성
-  const generate = async (message: string, prompt: string, language: string): Promise<void> => {
-    last = { message, prompt, language };
+  const generate = async (
+    message: string,
+    prompt: string,
+    language: string,
+    format: string = "plain",
+  ): Promise<void> => {
+    last = { message, prompt, language, format };
+    state.format = format;
     state.status = "loading";
     state.error = "";
     const start = Date.now();
     try {
-      state.result = await invoke<string>("generate_notice", { message, prompt, language });
+      state.result = await invoke<string>("generate_notice", {
+        message,
+        prompt,
+        language,
+        format,
+        globalRules: rulesState.rules,
+      });
       state.status = "success";
       addRecord(state.result, language, Date.now() - start);
     } catch (e) {
@@ -33,10 +41,9 @@ export function useGeneration() {
     }
   };
 
-  // 직전 입력으로 다시 생성
-  const regenerate = (): Promise<void> => generate(last.message, last.prompt, last.language);
+  const regenerate = (): Promise<void> =>
+    generate(last.message, last.prompt, last.language, last.format);
 
-  // 현재 결과를 지시대로 AI 수정
   const refine = async (instruction: string): Promise<void> => {
     state.status = "loading";
     state.error = "";
@@ -46,6 +53,8 @@ export function useGeneration() {
         current: state.result,
         instruction,
         language: last.language,
+        format: last.format,
+        globalRules: rulesState.rules,
       });
       state.status = "success";
       addRecord(state.result, last.language, Date.now() - start);
@@ -55,7 +64,6 @@ export function useGeneration() {
     }
   };
 
-  // 수동 편집 반영
   const setResult = (text: string): void => {
     state.result = text;
   };

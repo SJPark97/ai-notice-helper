@@ -19,13 +19,27 @@
 
     <!-- 결과 -->
     <template v-else>
+      <!-- 편집/미리보기 토글 -->
+      <div class="view-toggle">
+        <button :class="{ active: viewMode === 'edit' }" type="button" data-test="mode-edit" @click="viewMode = 'edit'">편집</button>
+        <button :class="{ active: viewMode === 'preview' }" type="button" data-test="mode-preview" @click="viewMode = 'preview'">미리보기</button>
+      </div>
+
+      <!-- 편집 -->
       <textarea
+        v-if="viewMode === 'edit'"
         class="preview"
         data-test="preview"
         :value="state.result"
         @input="onEdit"
         placeholder="여기에 생성된 공지가 표시됩니다."
       ></textarea>
+
+      <!-- 미리보기 (형식별 렌더) -->
+      <div v-else class="rendered" data-test="rendered">
+        <pre v-if="state.format === 'plain'" class="rendered-plain">{{ state.result }}</pre>
+        <div v-else class="rendered-rich" v-html="previewHtml"></div>
+      </div>
 
       <!-- AI 수정 지시 -->
       <div class="refine-row">
@@ -43,7 +57,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, computed } from "vue";
+import { marked } from "marked";
 import { useGeneration } from "../composables/useGeneration";
 
 const emit = defineEmits<{ (e: "back"): void }>();
@@ -52,6 +67,16 @@ const { state, regenerate, refine, setResult } = useGeneration();
 
 const refineText = ref<string>("");
 const copied = ref<boolean>(false);
+
+// 편집 / 미리보기 모드
+const viewMode = ref<"edit" | "preview">("edit");
+
+// 형식별 미리보기 HTML (plain은 v-html 미사용)
+const previewHtml = computed<string>(() => {
+  if (state.format === "html") return state.result;
+  if (state.format === "markdown") return marked.parse(state.result, { async: false }) as string;
+  return "";
+});
 
 // 편집 반영
 const onEdit = (e: Event): void => {
@@ -195,5 +220,44 @@ h1 {
   100% {
     transform: translateX(350%);
   }
+}
+.view-toggle {
+  display: flex;
+  gap: 4px;
+}
+.view-toggle button {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.view-toggle button.active {
+  color: var(--primary-text);
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.rendered {
+  min-height: 260px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  overflow: auto;
+}
+.rendered-plain {
+  margin: 0;
+  font: inherit;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.rendered-rich {
+  line-height: 1.6;
+}
+.rendered-rich :first-child {
+  margin-top: 0;
 }
 </style>

@@ -2,14 +2,25 @@
     <button class="theme-toggle" type="button" data-test="theme-toggle" @click="toggleTheme">
         {{ theme === "dark" ? "☀️" : "🌙" }}
     </button>
-    <MainView v-if="screen === 'main'" @generate="screen = 'result'" />
-    <ResultView v-else @back="screen = 'main'" />
+
+    <!-- 상단 탭 -->
+    <nav class="tabs">
+        <button :class="{ active: tab === 'notice' }" data-test="tab-notice" @click="tab = 'notice'">공지 생성</button>
+        <button :class="{ active: tab === 'rules' }" data-test="tab-rules" @click="tab = 'rules'">전역 규칙</button>
+    </nav>
+
+    <template v-if="tab === 'notice'">
+        <MainView v-if="screen === 'main'" @generate="screen = 'result'" />
+        <ResultView v-else @back="screen = 'main'" />
+    </template>
+    <GlobalRulesView v-else />
 </template>
 
 <script setup lang="ts">
 import { ref } from "vue";
 import MainView from "./views/MainView.vue";
 import ResultView from "./views/ResultView.vue";
+import GlobalRulesView from "./views/GlobalRulesView.vue";
 import { useClipboardWatch } from "./composables/useClipboardWatch";
 import { useTheme } from "./composables/useTheme";
 
@@ -19,6 +30,9 @@ useClipboardWatch();
 // 테마 초기화 + 토글
 const { theme, toggleTheme, initTheme } = useTheme();
 initTheme();
+
+// 상단 탭 상태 (notice | rules)
+const tab = ref<"notice" | "rules">("notice");
 
 // 현재 화면 상태 (main | result)
 const screen = ref<"main" | "result">("main");
@@ -88,5 +102,27 @@ body {
     height: 34px;
     font-size: 15px;
     cursor: pointer;
+}
+.tabs {
+    display: flex;
+    gap: 4px;
+    padding: 10px 20px 0;
+    max-width: 720px;
+    margin: 0 auto;
+}
+.tabs button {
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 8px 12px;
+    border-radius: 8px 8px 0 0;
+    cursor: pointer;
+}
+.tabs button.active {
+    color: var(--text);
+    background: var(--surface);
+    border-bottom: 2px solid var(--primary);
 }
 </style>

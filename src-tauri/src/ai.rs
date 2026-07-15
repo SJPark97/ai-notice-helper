@@ -60,15 +60,38 @@ async fn call_ai(messages: Vec<Msg>) -> Result<String, String> {
         .ok_or_else(|| "AI 응답이 비어 있습니다".to_string())
 }
 
+// 출력 형식별 지시문
+fn format_rule(format: &str) -> &'static str {
+    match format {
+        "markdown" => "출력은 마크다운 형식으로 작성한다(강조 **, 불릿 -).",
+        "html" => "출력은 HTML로 작성한다(<b>, <ul>, <li> 등 태그 사용).",
+        _ => "출력은 마크다운 문법이나 별표(*, **) 없이 순수 일반 텍스트로 작성한다. 항목 구분은 • 또는 - 불릿과 줄바꿈으로만 한다.",
+    }
+}
+
+// 전역 규칙 블록(비어 있으면 빈 문자열)
+fn rules_block(global_rules: &str) -> String {
+    let r = global_rules.trim();
+    if r.is_empty() {
+        String::new()
+    } else {
+        format!("전역 규칙(항상 적용):\n{r}\n\n")
+    }
+}
+
 // 공지 생성: 원본 메시지 + 지시(프롬프트) + 언어
 #[tauri::command]
 pub async fn generate_notice(
     message: String,
     prompt: String,
     language: String,
+    format: String,
+    global_rules: String,
 ) -> Result<String, String> {
     let user = format!(
-        "원본 메시지:\n{message}\n\n지시:\n{prompt}\n\n출력 언어: {language}"
+        "{rules}원본 메시지:\n{message}\n\n지시:\n{prompt}\n\n{fmt}\n출력 언어: {language}",
+        rules = rules_block(&global_rules),
+        fmt = format_rule(&format),
     );
     let messages = vec![
         Msg { role: "system".to_string(), content: SYSTEM_PROMPT.to_string() },
@@ -83,9 +106,13 @@ pub async fn refine_notice(
     current: String,
     instruction: String,
     language: String,
+    format: String,
+    global_rules: String,
 ) -> Result<String, String> {
     let user = format!(
-        "아래 공지를 다음 지시에 맞게 다시 작성해줘. 언어는 {language}로 유지.\n\n[현재 공지]\n{current}\n\n[지시]\n{instruction}"
+        "{rules}아래 공지를 다음 지시에 맞게 다시 작성해줘. 언어는 {language}로 유지.\n{fmt}\n\n[현재 공지]\n{current}\n\n[지시]\n{instruction}",
+        rules = rules_block(&global_rules),
+        fmt = format_rule(&format),
     );
     let messages = vec![
         Msg { role: "system".to_string(), content: SYSTEM_PROMPT.to_string() },

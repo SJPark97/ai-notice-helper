@@ -21,6 +21,11 @@ describe("MainView", () => {
     expect(wrapper.find('[data-test="language"]').exists()).toBe(true);
   });
 
+  it("출력 형식 드롭다운이 있다", () => {
+    const wrapper = mount(MainView);
+    expect(wrapper.find('[data-test="format"]').exists()).toBe(true);
+  });
+
   it("메시지 미선택 시 공지 생성하면 검증 피드백을 보여주고 generate 이벤트를 내지 않는다", async () => {
     const cb = useClipboardMessages();
     cb.clear();
