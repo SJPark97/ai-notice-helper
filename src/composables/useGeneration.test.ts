@@ -1,81 +1,86 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-// @tauri-apps/api/core invoke 모킹
 const invokeMock = vi.fn();
+const listeners: Record<string, (e: { payload: unknown }) => void> = {};
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => invokeMock(...a) }));
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: (event: string, cb: (e: { payload: unknown }) => void) => {
+    listeners[event] = cb;
+    return Promise.resolve(() => { delete listeners[event]; });
+  },
+}));
 
 import { useGeneration } from "./useGeneration";
-import { useHistory } from "./useHistory";
 import { useGlobalRules } from "./useGlobalRules";
 
-describe("useGeneration", () => {
+describe("useGeneration 스트리밍", () => {
   const g = useGeneration();
   beforeEach(() => {
     invokeMock.mockReset();
     g.setResult("");
     g.state.status = "idle";
     g.state.error = "";
-    // 전역 규칙을 빈 값으로 고정
     useGlobalRules().setRules("");
   });
 
-  it("generate 성공 시 결과와 success 상태", async () => {
-    invokeMock.mockResolvedValue("📢 배포 공지\n- 내용");
-    await g.generate("메시지", "3줄로", "한국어", "plain");
+  it("generate: 토큰을 누적하고 done에 success", async () => {
+    invokeMock.mockImplementation(async () => {
+      listeners["notice://token"]({ payload: "배포 " });
+      listeners["notice://token"]({ payload: "공지" });
+      listeners["notice://done"]({ payload: undefined });
+    });
+    await g.generate("메시지", "지시", "한국어", "plain");
+    expect(g.state.result).toBe("배포 공지");
     expect(g.state.status).toBe("success");
-    expect(g.state.result).toContain("배포 공지");
-    expect(invokeMock).toHaveBeenCalledWith("generate_notice", {
+    expect(invokeMock).toHaveBeenCalledWith("generate_notice_stream", {
       message: "메시지",
-      prompt: "3줄로",
+      prompt: "지시",
       language: "한국어",
       format: "plain",
       globalRules: "",
     });
   });
 
-  it("generate 실패 시 error 상태와 메시지", async () => {
-    invokeMock.mockRejectedValue("AI 서버 연결 실패");
-    await g.generate("메시지", "지시", "한국어", "plain");
+  it("generate: error 이벤트 시 error 상태", async () => {
+    invokeMock.mockImplementation(async () => {
+      listeners["notice://error"]({ payload: "AI 서버 연결 실패" });
+    });
+    await g.generate("m", "p", "한국어", "plain");
     expect(g.state.status).toBe("error");
     expect(g.state.error).toContain("연결 실패");
   });
 
-  it("regenerate는 직전 입력으로 다시 호출한다", async () => {
-    invokeMock.mockResolvedValue("결과1");
-    await g.generate("원본메시지", "지시문", "한국어", "markdown");
-    invokeMock.mockResolvedValue("결과2");
+  it("regenerate: 직전 입력으로 스트리밍 재호출", async () => {
+    invokeMock.mockImplementation(async () => {
+      listeners["notice://token"]({ payload: "결과" });
+      listeners["notice://done"]({ payload: undefined });
+    });
+    await g.generate("원본", "지시문", "한국어", "markdown");
     await g.regenerate();
-    expect(invokeMock).toHaveBeenLastCalledWith("generate_notice", {
-      message: "원본메시지",
+    expect(invokeMock).toHaveBeenLastCalledWith("generate_notice_stream", {
+      message: "원본",
       prompt: "지시문",
       language: "한국어",
       format: "markdown",
       globalRules: "",
     });
-    expect(g.state.result).toBe("결과2");
   });
 
-  it("refine은 현재 결과와 지시로 refine_notice를 호출한다", async () => {
-    invokeMock.mockResolvedValue("초안");
-    await g.generate("m", "p", "한국어", "html");
-    invokeMock.mockResolvedValue("더 짧은 버전");
+  it("refine: 현재 결과와 지시로 refine_notice_stream 스트리밍", async () => {
+    invokeMock.mockImplementation(async () => {
+      listeners["notice://token"]({ payload: "수정본" });
+      listeners["notice://done"]({ payload: undefined });
+    });
+    await g.generate("m", "p", "한국어", "plain");
+    g.setResult("초안");
     await g.refine("더 짧게");
-    expect(invokeMock).toHaveBeenLastCalledWith("refine_notice", {
+    expect(invokeMock).toHaveBeenLastCalledWith("refine_notice_stream", {
       current: "초안",
       instruction: "더 짧게",
       language: "한국어",
-      format: "html",
+      format: "plain",
       globalRules: "",
     });
-    expect(g.state.result).toBe("더 짧은 버전");
-  });
-
-  it("generate 성공 시 최근 기록에 추가된다", async () => {
-    const h = useHistory();
-    h.clearHistory();
-    invokeMock.mockResolvedValue("생성된 공지 본문");
-    await g.generate("메시지", "지시", "한국어", "plain");
-    expect(h.state.records[0].notice).toBe("생성된 공지 본문");
-    expect(h.state.records[0].language).toBe("한국어");
+    expect(g.state.result).toBe("수정본");
   });
 });

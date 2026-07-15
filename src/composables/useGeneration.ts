@@ -1,11 +1,12 @@
 import { reactive } from "vue";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { useHistory } from "./useHistory";
 import { useGlobalRules } from "./useGlobalRules";
 
 type Status = "idle" | "loading" | "success" | "error";
 
-// state.format은 결과 미리보기(Task 4)가 형식별 렌더를 위해 읽는다
+// state.format은 결과 미리보기가 형식별 렌더에 사용
 const state = reactive({ status: "idle" as Status, result: "", error: "", format: "plain" });
 
 let last = { message: "", prompt: "", language: "한국어", format: "plain" };
@@ -14,6 +15,50 @@ export function useGeneration() {
   const { addRecord } = useHistory();
   const { state: rulesState } = useGlobalRules();
 
+  // 스트리밍 공통 실행: 토큰 이벤트를 누적하고 done/error로 종료
+  const runStream = async (
+    command: string,
+    args: Record<string, unknown>,
+    language: string,
+  ): Promise<void> => {
+    state.status = "loading";
+    state.result = "";
+    state.error = "";
+    const start = Date.now();
+    const unlistens: Array<() => void> = [];
+    const cleanup = (): void => {
+      unlistens.forEach((u) => u());
+      unlistens.length = 0;
+    };
+    try {
+      unlistens.push(
+        await listen<string>("notice://token", (e) => {
+          state.result += e.payload;
+        }),
+      );
+      unlistens.push(
+        await listen("notice://done", () => {
+          state.status = "success";
+          addRecord(state.result, language, Date.now() - start);
+          cleanup();
+        }),
+      );
+      unlistens.push(
+        await listen<string>("notice://error", (e) => {
+          state.status = "error";
+          state.error = String(e.payload);
+          cleanup();
+        }),
+      );
+      await invoke(command, args);
+    } catch (e) {
+      state.status = "error";
+      state.error = String(e);
+      cleanup();
+    }
+  };
+
+  // 공지 생성(스트리밍)
   const generate = async (
     message: string,
     prompt: string,
@@ -22,48 +67,34 @@ export function useGeneration() {
   ): Promise<void> => {
     last = { message, prompt, language, format };
     state.format = format;
-    state.status = "loading";
-    state.error = "";
-    const start = Date.now();
-    try {
-      state.result = await invoke<string>("generate_notice", {
-        message,
-        prompt,
-        language,
-        format,
-        globalRules: rulesState.rules,
-      });
-      state.status = "success";
-      addRecord(state.result, language, Date.now() - start);
-    } catch (e) {
-      state.status = "error";
-      state.error = String(e);
-    }
+    await runStream(
+      "generate_notice_stream",
+      { message, prompt, language, format, globalRules: rulesState.rules },
+      language,
+    );
   };
 
+  // 직전 입력으로 다시 생성
   const regenerate = (): Promise<void> =>
     generate(last.message, last.prompt, last.language, last.format);
 
+  // 현재 결과를 지시대로 AI 수정(스트리밍)
   const refine = async (instruction: string): Promise<void> => {
-    state.status = "loading";
-    state.error = "";
-    const start = Date.now();
-    try {
-      state.result = await invoke<string>("refine_notice", {
-        current: state.result,
+    const current = state.result; // 초기화 전에 캡처
+    await runStream(
+      "refine_notice_stream",
+      {
+        current,
         instruction,
         language: last.language,
         format: last.format,
         globalRules: rulesState.rules,
-      });
-      state.status = "success";
-      addRecord(state.result, last.language, Date.now() - start);
-    } catch (e) {
-      state.status = "error";
-      state.error = String(e);
-    }
+      },
+      last.language,
+    );
   };
 
+  // 수동 편집 반영
   const setResult = (text: string): void => {
     state.result = text;
   };
