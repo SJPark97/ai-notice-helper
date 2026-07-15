@@ -17,9 +17,13 @@ export const LANGUAGES = [
     { value: "中文", label: "中文" },
 ] as const;
 
-// 출력 형식 (문서 에디터 타겟이라 기본 plain)
+// 출력 형식 (문서 에디터 타겟이라 기본 plain, value는 Rust format_rule과 일치)
 export const FORMATS = [
     { value: "plain", label: "일반 텍스트" },
+    { value: "editor", label: "에디터 형식" },
     { value: "markdown", label: "마크다운" },
     { value: "html", label: "HTML" },
+    { value: "emoji", label: "이모지 스타일" },
+    { value: "table", label: "표 형식" },
+    { value: "numbered", label: "번호 목록" },
 ] as const;

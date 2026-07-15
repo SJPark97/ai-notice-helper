@@ -9,11 +9,11 @@
         <button :class="{ active: tab === 'rules' }" data-test="tab-rules" @click="tab = 'rules'">전역 규칙</button>
     </nav>
 
-    <template v-if="tab === 'notice'">
-        <MainView v-if="screen === 'main'" @generate="screen = 'result'" />
-        <ResultView v-else @back="screen = 'main'" />
-    </template>
-    <GlobalRulesView v-else />
+    <div v-show="tab === 'notice'">
+        <MainView v-show="screen === 'main'" @generate="screen = 'result'" />
+        <ResultView v-show="screen === 'result'" @back="screen = 'main'" />
+    </div>
+    <GlobalRulesView v-show="tab === 'rules'" />
 </template>
 
 <script setup lang="ts">
