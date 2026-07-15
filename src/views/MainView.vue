@@ -29,6 +29,22 @@
             </button>
         </div>
 
+        <!-- 템플릿 선택/저장 -->
+        <label>템플릿</label>
+        <div class="tpl-row">
+            <select v-model="selectedTemplateId" data-test="tpl-select" @change="onSelectTemplate">
+                <option value="">템플릿 선택…</option>
+                <option v-for="t in tplState.templates" :key="t.id" :value="t.id">{{ t.name }}</option>
+            </select>
+            <input
+                v-model="templateName"
+                data-test="tpl-name"
+                class="tpl-name"
+                placeholder="새 템플릿 이름"
+            />
+            <button data-test="tpl-save" type="button" @click="onSaveTemplate">저장</button>
+        </div>
+
         <!-- 공지 유형 -->
         <label>공지 유형</label>
         <select v-model="type" data-test="notice-type">
@@ -60,18 +76,44 @@
 import { ref } from "vue";
 import { NOTICE_TYPES, LANGUAGES } from "../constants/notice";
 import { useClipboardMessages } from "../composables/useClipboardMessages";
+import { useTemplates } from "../composables/useTemplates";
 
 const emit = defineEmits<{ (e: "generate"): void }>();
 
 const { state, select, clear, setWatching } = useClipboardMessages();
+const { state: tplState, saveTemplate, getTemplate } = useTemplates();
 
 const type = ref<string>(NOTICE_TYPES[0]);
 const language = ref<string>(LANGUAGES[0].value);
 const requirement = ref<string>("");
 
+// 템플릿 저장용 이름 입력
+const templateName = ref<string>("");
+// 선택된 템플릿 id
+const selectedTemplateId = ref<string>("");
+
 // 감시 토글 핸들러
 const onToggleWatch = (e: Event): void => {
     setWatching((e.target as HTMLInputElement).checked);
+};
+
+// 현재 폼을 템플릿으로 저장
+const onSaveTemplate = (): void => {
+    const saved = saveTemplate(templateName.value, {
+        type: type.value,
+        language: language.value,
+        requirement: requirement.value,
+    });
+    if (saved) templateName.value = "";
+};
+
+// 템플릿 선택 시 폼에 적용
+const onSelectTemplate = (): void => {
+    const t = getTemplate(selectedTemplateId.value);
+    if (!t) return;
+    type.value = t.type;
+    language.value = t.language;
+    requirement.value = t.requirement;
 };
 
 // 현재 단계에서는 화면 전환만. 후속 Plan에서 실제 생성 연결.
@@ -133,5 +175,12 @@ const emitGenerate = () => {
 .msg-item.selected {
     border-color: #3b82f6;
     background: #e8f0fe;
+}
+.tpl-row {
+    display: flex;
+    gap: 8px;
+}
+.tpl-name {
+    flex: 1;
 }
 </style>
