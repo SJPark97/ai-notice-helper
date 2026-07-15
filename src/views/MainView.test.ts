@@ -86,6 +86,14 @@ describe("MainView 프롬프트", () => {
     await wrapper.find('[data-test="prompt-update"]').trigger("click");
     expect(p.state.prompts[0].title).toBe("수정본");
   });
+
+  it("마지막 선택 프롬프트가 있으면 시작 시 복원한다", () => {
+    const saved = p.savePrompt("복원용", "복원 내용");
+    p.setLastSelected((saved as { id: string }).id);
+    const wrapper = mount(MainView);
+    const title = wrapper.find('[data-test="prompt-title"]').element as HTMLInputElement;
+    expect(title.value).toBe("복원용");
+  });
 });
 
 describe("MainView 최근 기록", () => {
