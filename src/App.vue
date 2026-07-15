@@ -7,6 +7,10 @@
 import { ref } from "vue";
 import MainView from "./views/MainView.vue";
 import ResultView from "./views/ResultView.vue";
+import { useClipboardWatch } from "./composables/useClipboardWatch";
+
+// 앱 생애 동안 클립보드 감시 (1회)
+useClipboardWatch();
 
 // 현재 화면 상태 (main | result)
 const screen = ref<"main" | "result">("main");
