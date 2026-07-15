@@ -2,13 +2,14 @@
   <section class="result-view">
     <h1>생성된 공지</h1>
 
-    <!-- 로딩: 스피너 + 진행바(백분율 불가 → indeterminate) -->
+    <!-- 로딩/스트리밍 -->
     <div v-if="state.status === 'loading'" class="loading" data-test="status-loading">
       <div class="loading-head">
         <span class="spinner" aria-hidden="true"></span>
         <span>AI가 공지를 생성 중입니다…</span>
       </div>
-      <div class="progress-bar" role="progressbar" aria-label="생성 진행 중"></div>
+      <pre v-if="state.result" class="rendered-plain streaming" data-test="streaming">{{ state.result }}</pre>
+      <div v-else class="progress-bar" role="progressbar" aria-label="생성 진행 중"></div>
     </div>
 
     <!-- 에러 -->
@@ -259,5 +260,18 @@ h1 {
 }
 .rendered-rich :first-child {
   margin-top: 0;
+}
+.streaming {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 120px;
+  max-height: 420px;
+  overflow: auto;
 }
 </style>

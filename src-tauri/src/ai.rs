@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Emitter};
 
 // Ollama OpenAI 호환 엔드포인트 / 모델 (추후 llama-server로 교체 가능)
 const AI_URL: &str = "http://localhost:11434/v1/chat/completions";
@@ -152,4 +153,113 @@ pub async fn preload_model() -> Result<(), String> {
 // 모델 언로드(트레이로 최소화될 때) — RAM 반납
 pub async fn unload_model() -> Result<(), String> {
     set_keep_alive(0).await
+}
+
+// Ollama 네이티브 채팅 스트리밍 엔드포인트
+const NATIVE_CHAT_URL: &str = "http://localhost:11434/api/chat";
+
+#[derive(Serialize)]
+struct StreamReq<'a> {
+    model: &'a str,
+    messages: &'a [Msg],
+    stream: bool,
+}
+
+#[derive(Deserialize)]
+struct StreamMsg {
+    content: String,
+}
+
+#[derive(Deserialize)]
+struct StreamChunk {
+    message: StreamMsg,
+    done: bool,
+}
+
+// Ollama 스트리밍 응답을 줄 단위로 읽어 토큰을 이벤트로 emit
+async fn stream_ai(app: &AppHandle, messages: Vec<Msg>) -> Result<(), String> {
+    let client = reqwest::Client::new();
+    let body = StreamReq { model: MODEL, messages: &messages, stream: true };
+    let mut resp = client
+        .post(NATIVE_CHAT_URL)
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("AI 서버 연결 실패 (Ollama 실행 중인지 확인): {e}"))?;
+    if !resp.status().is_success() {
+        return Err(format!("AI 서버 오류: {}", resp.status()));
+    }
+    let mut buf = String::new();
+    while let Some(chunk) = resp.chunk().await.map_err(|e| e.to_string())? {
+        buf.push_str(&String::from_utf8_lossy(&chunk));
+        // 완성된 줄(개행)마다 파싱
+        while let Some(nl) = buf.find('\n') {
+            let line: String = buf.drain(..=nl).collect();
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+            if let Ok(c) = serde_json::from_str::<StreamChunk>(line) {
+                if !c.message.content.is_empty() {
+                    let _ = app.emit("notice://token", c.message.content);
+                }
+                if c.done {
+                    let _ = app.emit("notice://done", ());
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+// 공지 생성(스트리밍)
+#[tauri::command]
+pub async fn generate_notice_stream(
+    app: AppHandle,
+    message: String,
+    prompt: String,
+    language: String,
+    format: String,
+    global_rules: String,
+) -> Result<(), String> {
+    let user = format!(
+        "{rules}원본 메시지:\n{message}\n\n지시:\n{prompt}\n\n{fmt}\n출력 언어: {language}",
+        rules = rules_block(&global_rules),
+        fmt = format_rule(&format),
+    );
+    let messages = vec![
+        Msg { role: "system".to_string(), content: SYSTEM_PROMPT.to_string() },
+        Msg { role: "user".to_string(), content: user },
+    ];
+    let r = stream_ai(&app, messages).await;
+    if let Err(e) = &r {
+        let _ = app.emit("notice://error", e.clone());
+    }
+    r
+}
+
+// AI 수정(스트리밍)
+#[tauri::command]
+pub async fn refine_notice_stream(
+    app: AppHandle,
+    current: String,
+    instruction: String,
+    language: String,
+    format: String,
+    global_rules: String,
+) -> Result<(), String> {
+    let user = format!(
+        "{rules}아래 공지를 다음 지시에 맞게 다시 작성해줘. 언어는 {language}로 유지.\n{fmt}\n\n[현재 공지]\n{current}\n\n[지시]\n{instruction}",
+        rules = rules_block(&global_rules),
+        fmt = format_rule(&format),
+    );
+    let messages = vec![
+        Msg { role: "system".to_string(), content: SYSTEM_PROMPT.to_string() },
+        Msg { role: "user".to_string(), content: user },
+    ];
+    let r = stream_ai(&app, messages).await;
+    if let Err(e) = &r {
+        let _ = app.emit("notice://error", e.clone());
+    }
+    r
 }
